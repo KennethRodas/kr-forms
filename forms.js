@@ -26,30 +26,51 @@ var BUDGETS = [{val:'$500–$750',label:'Logo Only · Entry'},{val:'$750–$1,00
 var TM = {text:{l:'Short Text',i:'📝'},email:{l:'Email',i:'📧'},url:{l:'URL',i:'🌐'},textarea:{l:'Long Text',i:'📄'},select:{l:'Dropdown',i:'📋'},personality_tags:{l:'Tag Picker',i:'🏷️'},style_cards:{l:'Style Cards',i:'◻️'},swatch_grid:{l:'Color Swatches',i:'🎨'},color_picker:{l:'Color Picker',i:'🖌️'},budget_slider:{l:'Budget Slider',i:'💰'},scope_cards:{l:'Service Cards',i:'☑️'},upload:{l:'File Upload',i:'📎'},competitors:{l:'Competitor Rows',i:'👥'}};
 
 // ── FIELD HTML ─────────────────────────────────────────────────────────────
+function renderFields(fields) {
+  // Groups consecutive colHalf fields into .field-row, renders rest normally
+  var html = '';
+  var i = 0;
+  while (i < fields.length) {
+    var f = fields[i];
+    if (!f.enabled) { i++; continue; }
+    if (f.type === 'divider') { html += '<hr class="section-divider">'; i++; continue; }
+    if (f.colHalf && i+1 < fields.length && fields[i+1] && fields[i+1].enabled && fields[i+1].colHalf) {
+      html += '<div class="field-row">' + fld(fields[i]) + fld(fields[i+1]) + '</div>';
+      i += 2;
+    } else {
+      html += fld(f);
+      i++;
+    }
+  }
+  return html;
+}
+
 function fld(f) {
   if (!f.enabled) return '';
+  if (f.type === 'divider') return '<hr class="section-divider">';
   var lbl = '<label>' + f.label + (f.required ? ' <span class="req">*</span>' : '') + (f.hint ? '<span class="hint">' + f.hint + '</span>' : '') + '</label>';
-  var err = f.required ? '<div class="field-error">Required.</div>' : '';
+  var errMsg = f.errorMsg || 'Required.';
+  var err = f.required ? '<div class="field-error">' + errMsg + '</div>' : '';
   var ml = f.maxLength || 400;
   switch (f.type) {
     case 'text': case 'email': case 'url':
-      return '<div class="field-group">' + lbl + '<input type="' + f.type + '" name="' + f.id + '" placeholder="' + (f.placeholder||'') + '"' + (f.required?' required':'') + '>' + err + '</div>';
+      return '<div class="field-group">' + lbl + '<input type="' + f.type + '" name="' + f.id + '" placeholder="' + (f.placeholder||'') + '"' + (f.required?' required':'') + (f.autocomplete?' autocomplete="'+f.autocomplete+'"':'') + '>' + err + '</div>';
     case 'textarea':
       return '<div class="field-group">' + lbl + '<div class="textarea-wrap"><textarea name="' + f.id + '" placeholder="' + (f.placeholder||'') + '"' + (f.required?' required':'') + ' maxlength="' + ml + '" data-maxlength="' + ml + '"></textarea><div class="char-count">0 / ' + ml + '</div></div>' + err + '</div>';
     case 'select':
-      return '<div class="field-group">' + lbl + '<select name="' + f.id + '"' + (f.required?' required':'') + '><option value="" disabled selected>Select one</option>' + (f.options||[]).map(function(o){return '<option>'+o+'</option>';}).join('') + '</select>' + err + '</div>';
+      return '<div class="field-group">' + lbl + '<select name="' + f.id + '"' + (f.required?' required':'') + '><option value="" disabled selected>' + (f.placeholder||'Select one') + '</option>' + (f.options||[]).map(function(o){return '<option>'+o+'</option>';}).join('') + '</select>' + err + '</div>';
     case 'competitors':
-      return '<div class="field-group">' + lbl + [1,2,3].map(function(n){return '<div class="competitor-row"><input type="text" name="comp'+n+'_name" placeholder="Competitor name"><input type="url" name="comp'+n+'_url" placeholder="Website (optional)"></div>';}).join('') + '</div>';
+      return '<div class="field-group">' + lbl + [1,2,3].map(function(n){return '<div class="competitor-row"><input type="text" name="competitor_'+n+'_name" placeholder="Competitor name"><input type="url" name="competitor_'+n+'_url" placeholder="Their website (optional)"></div>';}).join('') + '</div>';
     case 'personality_tags':
-      return '<div class="field-group">' + lbl + '<div class="tag-grid" id="personalityTags"></div><div class="field-error" id="personalityError">Select at least 2 traits.</div></div>';
+      return '<div class="field-group">' + lbl + '<div class="tag-grid" id="personalityTags"></div><div class="field-error" id="personalityError">Please select at least 2 personality traits.</div></div>';
     case 'style_cards':
       return '<div class="field-group">' + lbl + '<div class="card-grid cols-3" id="styleCards"></div><div class="field-error" id="styleError">Please select a style direction.</div></div>';
     case 'swatch_grid':
       return '<div class="field-group">' + lbl + '<div class="swatch-grid" id="swatchGrid"></div><div class="field-error" id="swatchError">Please select at least one.</div></div>';
     case 'color_picker':
-      return '<div class="field-group">' + lbl + '<div class="color-picker-row"><div class="color-input-wrap"><input type="color" id="colorPickerInput" value="#6ceda4"><div class="color-icon">＋</div></div><button type="button" class="add-color-btn" id="addColorBtn">Add Color</button><span style="font-size:11.5px;color:var(--text-muted)">Pick a shade, then click Add</span></div><div class="color-chips" id="colorChips"></div><input type="hidden" name="favorite_colors" id="favoriteColors"></div>';
+      return '<div class="field-group">' + lbl + '<div class="color-picker-row"><div class="color-input-wrap" title="Pick a color"><input type="color" id="colorPickerInput" value="#6ceda4"><div class="color-icon">\ufe0f+</div></div><button type="button" class="add-color-btn" id="addColorBtn">Add Color</button><span style="font-size:11.5px;color:var(--text-muted)">Pick a shade, then click Add</span></div><div class="color-chips" id="colorChips"></div><input type="hidden" name="favorite_colors" id="favoriteColors"></div>';
     case 'budget_slider':
-      return '<div class="field-group">' + lbl + '<div class="budget-display"><span id="budgetValue">$1,500–$2,500</span></div><div class="budget-sub" id="budgetLabel">Logo Design · Starter</div><div class="slider-wrap" ondragstart="return false"><input type="range" id="budgetSlider" name="budget_range" min="0" max="10" value="3" step="1" draggable="false"></div><div class="budget-labels"><span>$500</span><span>$5k</span><span>$10k+</span></div><input type="hidden" name="budget_display" id="budgetHidden"></div>';
+      return '<div class="field-group">' + lbl + '<div class="budget-display"><span id="budgetValue">$1,500 \u2013 $2,500</span></div><div class="budget-sub" id="budgetLabel">Logo Design \u00b7 Starter</div><div class="slider-wrap" ondragstart="return false"><input type="range" id="budgetSlider" name="budget_range" min="0" max="10" value="3" step="1" draggable="false"></div><div class="budget-labels"><span>$500</span><span>$5k</span><span>$10k+</span></div><input type="hidden" name="budget_display" id="budgetHidden"></div>';
     case 'scope_cards':
       return '<div class="field-group">' + lbl + '<div class="card-grid cols-2" id="scopeCards"></div><div class="field-error" id="scopeError">Please select at least one service.</div></div>';
     case 'upload':
@@ -126,9 +147,9 @@ if (ID) {
 
       // BUILD FORM HTML
       var stepsHTML = en.map(function(s, i){
-        var fields = s.fields.filter(function(f){ return f.enabled; }).map(fld).join('');
+        var fields = renderFields(s.fields);
         return '<div class="step-panel' + (i===0?' active':'') + '" data-step="'+(i+1)+'">' +
-          '<div class="step-title">'+s.icon+' '+s.label+'</div>' +
+          '<div class="step-title">'+(s.stepTitle || (s.icon+' '+s.label))+'</div>' +
           '<div class="step-desc">'+(s.desc||'')+'</div>' +
           fields + '</div>';
       }).join('');
@@ -208,17 +229,56 @@ if (ID) {
 // ══ BUILDER MODE ════════════════════════════════════════════════════════════
 ROOT.className = 'kr-builder-active'; // just marks it as active
 
-function F(id,type,label,opts){ opts=opts||{}; return {id:id,type:type,label:label,enabled:true,required:!!opts.required,placeholder:opts.placeholder||'',hint:opts.hint||'',options:opts.options||[],maxLength:opts.maxLength||400,maxFiles:opts.maxFiles||5}; }
+function F(id,type,label,opts){ opts=opts||{}; return {id:id,type:type,label:label,enabled:true,required:!!opts.required,placeholder:opts.placeholder||'',hint:opts.hint||'',options:opts.options||[],maxLength:opts.maxLength||400,maxFiles:opts.maxFiles||5,colHalf:!!opts.colHalf,errorMsg:opts.errorMsg||'',autocomplete:opts.autocomplete||''}; }
 
-var DEFS = {title:'Brand Discovery',subtitle:"Let's build something worth remembering.",description:'Before we dive in, I need to understand your world. This takes about 8 minutes.',formspreeId:'xojrrbqy',uploadcareKey:'97bb5d2cd5884f84dda0',sections:[
-  {id:'contact',label:'You',icon:'👋',enabled:true,desc:'Tell me who you are and what brought you here.',fields:[F('name','text','Your Name',{placeholder:'Jane Doe',required:true}),F('email','email','Email Address',{placeholder:'hello@brand.com',required:true}),F('bname','text','Business / Brand Name',{placeholder:'Acme Co.',required:true}),F('industry','text','Industry / Niche',{placeholder:'e.g. Health & Wellness',required:true}),F('website','url','Website URL',{placeholder:'https://yourbrand.com'}),F('referral','select','How did you find me?',{required:true,options:['Instagram','TikTok','LinkedIn','Google / Search','Word of mouth / Referral','Behance / Portfolio','Other']})]},
-  {id:'business',label:'Business',icon:'🏢',enabled:true,desc:'Help me understand what you do and what makes you different.',fields:[F('biz_desc','textarea','What does your business do?',{required:true,placeholder:'We help small businesses...'}),F('brand_story','textarea','Story behind the brand?',{placeholder:'I started this because...'}),F('tagline','text','Tagline / Motto',{placeholder:'e.g. Built different.'}),F('years','select','Years in business',{options:['Just starting out','Less than 1 year','1–3 years','3–7 years','7+ years']}),F('socials','text','Social media handles',{placeholder:'@yourbrand (IG), @yourbrand (TT)'})]},
-  {id:'audience',label:'Audience',icon:'🎯',enabled:true,desc:'Great branding speaks directly to one person.',fields:[F('ideal_client','textarea','Who is your ideal client?',{required:true,placeholder:'My ideal client is...'}),F('problem','textarea','What problem do you solve?',{required:true,placeholder:'They struggle to...'}),F('trust','textarea','Why should they trust you?',{placeholder:'10 years of experience...'})]},
-  {id:'competition',label:'Competition',icon:'🔍',enabled:true,desc:'Know the landscape so we can make you stand out.',fields:[F('competitors','competitors','Top 3 Competitors'),F('comp_s','textarea','What do competitors do well?',{placeholder:'Strong social presence...'}),F('comp_w','textarea','What do competitors get wrong?',{placeholder:'They feel cold...'}),F('diff','textarea','What makes you genuinely different?',{required:true,placeholder:"We're the only ones..."})]},
-  {id:'personality',label:'Personality',icon:'✨',enabled:true,desc:'Brands are like people — voice, vibe, character.',fields:[F('ptags','personality_tags','Brand personality words (pick up to 4)'),F('feeling','textarea','What should people FEEL?',{required:true,placeholder:'Inspired. Like dealing with a pro...'}),F('person','text','If your brand were a person, who?',{placeholder:'e.g. A young Steve Jobs...'}),F('goal','textarea','One year from now, success looks like?',{placeholder:'20k followers...'})]},
-  {id:'visual',label:'Visual',icon:'🎨',enabled:true,desc:'Now we get into aesthetics.',fields:[F('style','style_cards','Pick a style direction'),F('palette','swatch_grid','Color palette mood'),F('fav_c','color_picker','Favorite specific colors'),F('c_notes','textarea','Colors to include or avoid?',{placeholder:'Love deep greens...'}),F('brands','textarea','Brands you admire visually',{placeholder:'Notion, Glossier...'}),F('moodboard','upload','Upload moodboard / inspiration')]},
-  {id:'scope',label:'Scope',icon:'💼',enabled:true,desc:"Let's align on what you need.",fields:[F('services','scope_cards','What do you need from me?'),F('budget','budget_slider','Your investment range'),F('timeline','select','Desired timeline',{required:true,options:['ASAP (Rush — under 2 weeks)','2–4 weeks','1–2 months','2–3 months','Flexible — quality over speed']}),F('existing','select','Do you have an existing brand?',{options:['No — starting fresh','Yes — full rebrand needed','Yes — light refresh only','Partial — have some assets']}),F('assets','upload','Upload existing brand assets'),F('notes','textarea','Anything else I should know?',{placeholder:'Specific requirements...'})]}
-]};
+var DEFS = {title:'Brand Discovery',subtitle:"Let's build something worth remembering.",description:'Before we dive in, I need to understand your world. This takes about 8 minutes and sets the foundation for everything we create together.',formspreeId:'xojrrbqy',uploadcareKey:'97bb5d2cd5884f84dda0',sections:[
+  {id:'contact',label:'You',icon:'\ud83d\udc4b',enabled:true,desc:'Tell me who you are and what brought you here.',stepTitle:'First, let\'s meet. \ud83d\udc4b',fields:[
+    F('name','text','Your Name',{placeholder:'Jane Doe',required:true,errorMsg:'Please enter your name.',autocomplete:'name',colHalf:true}),
+    F('email','email','Email Address',{placeholder:'hello@yourbrand.com',required:true,errorMsg:'Please enter a valid email.',autocomplete:'email',colHalf:true}),
+    F('business_name','text','Business / Brand Name',{placeholder:'Acme Co.',required:true,errorMsg:'Please enter your business name.',colHalf:true}),
+    F('industry','text','Industry / Niche',{placeholder:'e.g. Health & Wellness',required:true,errorMsg:'Please enter your industry.',colHalf:true}),
+    F('website','url','Website URL',{placeholder:'https://yourbrand.com',hint:'If you have one \u2014 no worries if not.'}),
+    F('referral','select','How did you find me?',{required:true,errorMsg:'Please select an option.',placeholder:'Select one',options:['Instagram','TikTok','LinkedIn','Google / Search','Word of mouth / Referral','Behance / Portfolio','Other']})]},
+  {id:'business',label:'Business',icon:'\ud83c\udfe2',enabled:true,desc:'Help me understand what you do, who you serve, and what makes you different.',stepTitle:'Your Business \ud83c\udfe2',fields:[
+    F('business_description','textarea','What does your business do?',{required:true,placeholder:'We help small restaurant owners streamline their online orders through a simple SaaS platform...',hint:'Describe your products or services clearly.',errorMsg:'Please describe your business.',maxLength:400}),
+    F('brand_story','textarea','Is there a story behind the name or brand?',{placeholder:'I started this business after years of...',hint:'Background, origin, mission statement \u2014 anything that adds meaning.',maxLength:400}),
+    F('tagline','text','Tagline / Motto',{placeholder:'e.g. Built different.',hint:'If you have one, or are open to one.',colHalf:true}),
+    F('years_in_business','select','Years in business',{placeholder:'Select range',options:['Just starting out','Less than 1 year','1 \u2013 3 years','3 \u2013 7 years','7+ years'],colHalf:true}),
+    F('social_handles','text','Social media handles',{placeholder:'@yourbrand (IG), @yourbrand (TT)',hint:'Instagram, TikTok, LinkedIn \u2014 wherever you\'re active.'})]},
+  {id:'audience',label:'Audience',icon:'\ud83c\udfaf',enabled:true,desc:'Great branding speaks directly to one person. Let\'s figure out who that is.',stepTitle:'Your Audience \ud83c\udfaf',fields:[
+    F('ideal_client','textarea','Who is your ideal client?',{required:true,placeholder:'My ideal client is a female entrepreneur, 28\u201342, running an online coaching business. She values aesthetics and is willing to invest in quality...',hint:'Age, gender, lifestyle, job, mindset \u2014 paint a picture.',errorMsg:'Please describe your ideal client.',maxLength:400}),
+    F('problem_solved','textarea','What problem do you solve for them?',{required:true,placeholder:'They struggle to look credible online despite being incredibly skilled at what they do...',errorMsg:'Please describe the problem you solve.',maxLength:300}),
+    F('trust_factor','textarea','Why should they trust you over anyone else?',{placeholder:'10 years of experience, 300+ clients, featured in Forbes...',maxLength:300})]},
+  {id:'competition',label:'Competition',icon:'\ud83d\udd0d',enabled:true,desc:'I need to know your landscape so I can make you stand out in it \u2014 not blend in.',stepTitle:'The Competition \ud83d\udd0d',fields:[
+    F('competitors','competitors','List your top 3 competitors',{hint:'Name + website or describe them.'}),
+    F('competitor_strengths','textarea','What do your competitors do well?',{placeholder:'Strong social presence, recognizable logo, good pricing...'}),
+    F('competitor_weaknesses','textarea','What do they get wrong or miss entirely?',{placeholder:'They feel cold and corporate, lack personality, all look the same...'}),
+    F('differentiator','textarea','What makes you genuinely different?',{required:true,placeholder:"We\'re the only company in this space that...",errorMsg:'Please describe your differentiator.',maxLength:300})]},
+  {id:'personality',label:'Personality',icon:'\u2728',enabled:true,desc:'Brands are like people \u2014 they have a voice, a vibe, a character. Let\'s define yours.',stepTitle:'Brand Personality \u2728',fields:[
+    F('personality_tags','personality_tags','Pick up to 4 words that describe your brand',{hint:'These become the emotional DNA of the visual identity.'}),
+    {id:'div1',type:'divider',label:'',enabled:true,required:false,placeholder:'',hint:'',options:[],maxLength:400,maxFiles:5},
+    F('brand_feeling','textarea','What should people FEEL when they see your brand?',{required:true,placeholder:"Inspired. Like they\'re dealing with a pro. Confident in choosing us. Like this brand gets them...",errorMsg:'Required.'}),
+    F('brand_person','text','If your brand were a person, who would they be?',{placeholder:'e.g. A young Steve Jobs \u2014 visionary, no-nonsense, beautifully obsessive',hint:'Celebrity, fictional character, archetype \u2014 anything helps.'}),
+    F('one_year_goal','textarea','One year from now, what does success look like for this brand?',{placeholder:'20k followers, featured on 3 major podcasts, $500k in revenue...'})]},
+  {id:'visual',label:'Visual',icon:'\ud83c\udfa8',enabled:true,desc:'Now we get into aesthetics. Don\'t overthink \u2014 go with your gut.',stepTitle:'Visual Direction \ud83c\udfa8',fields:[
+    F('style','style_cards','Pick a style direction',{hint:'Choose the one that resonates most. You can explain nuances below.'}),
+    {id:'div2',type:'divider',label:'',enabled:true,required:false,placeholder:'',hint:'',options:[],maxLength:400,maxFiles:5},
+    F('palette','swatch_grid','Color palette mood',{hint:'Pick all that resonate.'}),
+    F('fav_colors','color_picker','Pick your favorite specific colors',{hint:'Use the color picker to add exact shades you love or already use. Optional.'}),
+    {id:'div3',type:'divider',label:'',enabled:true,required:false,placeholder:'',hint:'',options:[],maxLength:400,maxFiles:5},
+    F('color_notes','textarea','Are there any specific colors you want \u2014 or want to avoid?',{placeholder:'Love deep greens and warm neutrals. Please avoid orange \u2014 bad history with a previous brand...'}),
+    F('admired_brands','textarea','Brands you admire visually',{placeholder:'Notion, Glossier, Spotify, Patagonia...',hint:"Don\'t have to be competitors \u2014 any brand whose look you love."}),
+    F('moodboard','upload','Upload inspiration / moodboard images',{hint:'Logos, color palettes, styles you love \u2014 up to 5 files, 10MB each. Files upload to Uploadcare CDN; you\'ll receive links in the submission email.'})]},
+  {id:'scope',label:'Scope',icon:'\ud83d\udcbc',enabled:true,desc:"Let\'s make sure we\'re aligned on what you need and what you\'re ready to invest.",stepTitle:'Scope & Investment \ud83d\udcbc',fields:[
+    F('scope_services','scope_cards','What do you need from me?',{hint:'Select all that apply.'}),
+    {id:'div4',type:'divider',label:'',enabled:true,required:false,placeholder:'',hint:'',options:[],maxLength:400,maxFiles:5},
+    F('budget','budget_slider','Your investment range'),
+    {id:'div5',type:'divider',label:'',enabled:true,required:false,placeholder:'',hint:'',options:[],maxLength:400,maxFiles:5},
+    F('timeline','select','Desired timeline',{required:true,errorMsg:'Please select a timeline.',placeholder:'Select one',options:['ASAP (Rush \u2014 under 2 weeks)','2 \u2013 4 weeks','1 \u2013 2 months','2 \u2013 3 months','Flexible \u2014 quality over speed'],colHalf:true}),
+    F('existing_brand','select','Do you have an existing brand?',{placeholder:'Select one',options:['No \u2014 starting fresh','Yes \u2014 full rebrand needed','Yes \u2014 light refresh only','Partial \u2014 have some assets'],colHalf:true}),
+    F('brand_asset_files','upload','Upload existing brand assets',{hint:'Current logo, brand guide, fonts \u2014 helps me understand your starting point. Up to 5 files, 10MB each.'}),
+    F('additional_notes','textarea','Anything else I should know?',{placeholder:'Specific requirements, concerns, past designer experiences, dream outcomes...'})]}
+]}
 
 var cfg = Object.assign(clone(DEFS), {id: uid()});
 var activeSecId = cfg.sections[0].id;
